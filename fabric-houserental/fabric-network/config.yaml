@@ -1,0 +1,156 @@
+version: 1.0.0
+
+# 客户端配置
+client:
+  # 该应用程序所属的组织
+  organization: Org1
+  # 日志等级
+  logging:
+    level: info
+  # MSP证书的根路径，crypto-config.yaml文件路径，不需要写文件后缀
+  cryptoconfig:
+    # 路径自定义，这里为当前路径下
+    path: ./crypto-config
+
+  # 一些sdk支持可插拔KV存储，这些存储区位于“credentialStore”下
+  # 默认即可，以下都是可选的配置
+  credentialStore:
+    path: "/tmp/state-store"
+    cryptoStore:
+      path: /tmp/msp
+
+  # 加密组件的属性，默认即可
+  BCCSP:
+    security:
+      enabled: true
+      default:
+        provider: "SW"
+      hashAlgorithm: "SHA2"
+      softVerity: true
+      level: 256
+
+# 通道配置
+channels:
+  # 通道名称
+  xypchannel:
+    # 必要：orderer的配置，填写orderer的域名
+    orderers:
+      - orderer.example.com
+
+    # 必要：peer节点的配置，和client配置的组织保持一致
+    peers:
+      # 填写这个应用程序所属的组织的peer域名
+      peer0.org1.example.com:
+        endorsingPeer: true
+        chaincodeQuery: true
+        ledgerQuery: true
+        eventSource: true
+
+#      peer1.org1.example.com:
+#        endorsingPeer: true
+#        chaincodeQuery: true
+#        ledgerQuery: true
+#        eventSource: true
+
+    # 可选的策略配置，默认即可
+    policies:
+      queryChannelConfig:
+        minResponses: 1
+        maxTargets: 1
+        retryOpts:
+          attempts: 5
+          initialBackoff: 500ms
+          maxBackoff: 5s
+          backoffFactor: 2.0
+
+
+# 所有组织配置，包括所有peer组织和orderer组织
+organizations:
+  # 组织名称
+  Org1:
+    # 该组织的MSPID
+    mspid: Org1MSP
+    # 该组织的MSP证书路径
+    cryptoPath: ./crypto-config/peerOrganizations/org1.example.com/users/User1@org1.example.com/msp
+
+    # 这个组织下属的节点
+    peers:
+      - peer0.org1.example.com
+#      - peer1.org1.example.com
+
+    certificateAuthorities:
+#      - ca.org1.example.com
+
+  Org2:
+    # 该组织的MSPID
+    mspid: Org2MSP
+    # 该组织的MSP证书路径
+    cryptoPath: ./crypto-config/peerOrganizations/org2.example.com/users/User1@org2.example.com/msp
+
+    # 这个组织下属的节点
+    peers:
+      - peer0.org2.example.com
+    #      - peer1.org2.example.com
+
+    certificateAuthorities:
+#      - ca.org2.example.com
+
+  OrdererOrg:
+    # 该组织的MSPID
+    mspid: OrdererMSP
+    # 该组织的MSP证书路径
+    cryptoPath: ./crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp
+
+
+# orderer节点配置
+orderers:
+  # orderer节点域名
+  orderer.example.com:
+    # 用于grpc通信
+    url: 127.0.0.1:7050 # 或 grpcs://localhost:7050
+
+    # grpc配置
+    grpcOptions:
+      # 与前面orderer节点域名保持一致
+      ssl-target-name-override: orderer.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+    tlsCACerts:
+      path: /home/netter/go/workspace/src/hyperledger/fabric-sdk-go-test/conf/crypto-config/ordererOrganizations/examplecom/tlsca/tlsca.example.com-cert.pem
+
+# peer节点配置
+peers:
+  peer0.org1.example.com:
+    url: 127.0.0.1:7051 # 此url用于发送背书和查询请求
+    eventUrl: 127.0.0.1:7053 # 此url用于连接EventHub并注册事件侦听器
+
+    # grpc配置
+    grpcOptions:
+      # 与前面peer节点域名保持一致
+      ssl-target-name-override: peer0.org1.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+    tlsCACerts:
+      path: /home/netter/go/workspace/src/hyperledger/fabric-sdk-go-test/conf/crypto-config/peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem
+
+  peer0.org2.example.com:
+    url: 127.0.0.1:8051 # 此url用于发送背书和查询请求
+    eventUrl: 127.0.0.1:8053 # 此url用于连接EventHub并注册事件侦听器
+
+    # grpc配置
+    grpcOptions:
+      # 与前面peer节点域名保持一致
+      ssl-target-name-override: peer0.org2.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+    tlsCACerts:
+      path: /home/netter/go/workspace/src/hyperledger/fabric-sdk-go-test/conf/crypto-config/peerOrganizations/org2.example.com/tlsca/tlsca.org2.example.com-cert.pem
