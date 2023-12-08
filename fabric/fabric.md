@@ -1159,3 +1159,1052 @@ stop.sh
     # 调用函数删除链码镜像
     RemoveChaincodeImages
 ```
+
+# 10 go-sdk
+
+项目文档链接：[hyperledger/fabric-sdk-go (github.com)](https://github.com/hyperledger/fabric-sdk-go)
+
+## 10.1 项目目录
+
+internal 和 third_party,包含了 fabric go-sdk 依赖的一些代码。
+
+pkg 目录是 fabric go-sdk 的主要实现：
+
+- pkg/fabsdk：主 package，主要用来生成 fabsdk 以及 fabric go-sdk 中其它 pkg 使用的 option context。
+- pkg/client/channel：主要用来调用、查询 fabric 链码，或者注册链码事件。
+- pkg/client/event：配合 channel 模块来进行 fabric 链码事件的注册和过滤。
+- pkg/client/ledger：主要用来实现 fabric 账本的查询，查询区块、交易、配置等。
+- pkg/client/msp：主要用来管理 fabric 网络中的成员关系。
+- pkg/client/resmgmt：主要用来管理 hyperledger fabric 网络，比如创建通道、加入通道、安装链码、实例化链码和升级链码等。
+
+## 10.2 使用步骤
+
+1. 为 client 编写配置文件 config.yaml，为第二步做准备。
+
+2. 为 client 创建 fabric sdk 实例 fabsdk。
+
+   - ```go
+     	import (
+     		"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk"
+     		"github.com/hyperledger/fabric-sdk-go/pkg/core/config"
+     	)
+     	
+     	// 创建 sdk 实例
+     	sdk, err := fabsdk.New(config.FromFile(配置文件相对路径))
+     	// 延迟关闭 sdk 实例
+     	defer sdk.Close()
+     ```
+
+   - ps：defer 关键字后面所跟的函数，被压入到一个延迟栈中，因此会在所在函数执行过程的最后去执行，多个 defer 关键字的执行顺序为先入后出。
+
+3. 创建客户端，表明在通道的身份。
+
+   - 管理员账号才能进行 hyperledger fabric 网络的管理操作。
+
+   - 通过 fabsdk.WithOrg("Org1") 和 fabsdk.WithUser("Admin") 指定 Org1 的 Admin 账户。
+
+   - ```go
+     	// 创建客户端，表明在通道的身份
+     	// ChannelContext()函数，其中参数为 通道名称、组织名称、用户名称
+     	ctx := sdk.ChannelContext(ChannelName, fabsdk.WithOrg("Org1"), fabsdk.WithUser("Admin"))
+     ```
+
+4. 为 client 创建通道客户端。
+
+   - ```go
+     	import "github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
+     	// 创建通道
+     	clt, err := channel.New(ctx)
+     ```
+
+5. 调用链码。
+
+   - ```go
+     	// 查询
+     	// Query()函数的参数：第一个参数为Request，包括调用的部分信息，后续参数为背书策略中的节点。
+     	resp_query, err := clt.Query(channel.Request{
+     		ChaincodeID: channelId,             // 链码名称
+     		Fcn:         "query",               // 函数名称
+     		Args:        [][]byte{[]byte("a")}, // 参数
+     	}, channel.WithTargetEndpoints("peer0.org1.example.com"))
+     
+     	// 增删改
+     	// Execute()函数与Query()函数类似。
+     	resp_exec, err := clt.Execute(channel.Request{
+     		ChaincodeID: channelId,             // 链码名称
+     		Fcn:         "invoke",              // 函数名称
+     		Args:        [][]byte{[]byte("a")}, // 参数
+     	}, channel.WithTargetEndpoints("peer0.org1.example.com"))
+     ```
+
+## 10.3 config.yaml配置
+
+主要包含以下两方面信息：
+
+1. 客户端信息：所属组织、密钥和证书文件的路径等。
+2. 服务端信息：channel、org、orderer、peer等 fabric 网络信息。
+
+共五部分：
+
+1. client：go-sdk 使用的客户端部分。
+2. channels：通道相关的配置。
+3. organizations：组织配置，列举了参与该网络的所有组织。
+4. orderers：指定 orderer 排序节点。
+5. peers：指定 peer 节点。
+
+文件内容：
+
+```yaml
+version: 1.0.0
+
+# 客户端配置
+client:
+  # 该应用程序所属的组织
+  organization: Org1
+  # 日志等级
+  logging:
+    level: info
+  # MSP证书的根路径，crypto-config.yaml文件路径，不需要写文件后缀
+  cryptoconfig:
+    # 路径自定义，这里为当前路径下
+    path: ./crypto-config
+
+  # 一些sdk支持可插拔KV存储，这些存储区位于“credentialStore”下
+  # 默认即可，以下都是可选的配置
+  credentialStore:
+    path: "/tmp/state-store"
+    cryptoStore:
+      path: /tmp/msp
+
+  # 加密组件的属性，默认即可
+  BCCSP:
+    security:
+      enabled: true
+      default:
+        provider: "SW"
+      hashAlgorithm: "SHA2"
+      softVerity: true
+      level: 256
+
+# 通道配置
+channels:
+  # 通道名称
+  xypchannel:
+    # 必要：orderer的配置，填写orderer的域名
+    orderers:
+      - orderer.example.com
+
+    # 必要：peer节点的配置，和client配置的组织保持一致
+    peers:
+      # 填写这个应用程序所属的组织的peer域名
+      peer0.org1.example.com:
+        endorsingPeer: true
+        chaincodeQuery: true
+        ledgerQuery: true
+        eventSource: true
+
+#      peer1.org1.example.com:
+#        endorsingPeer: true
+#        chaincodeQuery: true
+#        ledgerQuery: true
+#        eventSource: true
+
+    # 可选的策略配置，默认即可
+    policies:
+      queryChannelConfig:
+        minResponses: 1
+        maxTargets: 1
+        retryOpts:
+          attempts: 5
+          initialBackoff: 500ms
+          maxBackoff: 5s
+          backoffFactor: 2.0
+
+
+# 所有组织配置，包括所有peer组织和orderer组织
+organizations:
+  # 组织名称
+  Org1:
+    # 该组织的MSPID
+    mspid: Org1MSP
+    # 该组织的MSP证书路径
+    cryptoPath: ./crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+
+    # 这个组织下属的节点
+    peers:
+      - peer0.org1.example.com
+#      - peer1.org1.example.com
+
+    certificateAuthorities:
+#      - ca.org1.example.com
+
+  Org2:
+    # 该组织的MSPID
+    mspid: Org2MSP
+    # 该组织的MSP证书路径
+    cryptoPath: ./crypto-config/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp
+
+    # 这个组织下属的节点
+    peers:
+      - peer0.org2.example.com
+    #      - peer1.org2.example.com
+
+    certificateAuthorities:
+#      - ca.org2.example.com
+
+  OrdererOrg:
+    # 该组织的MSPID
+    mspid: OrdererMSP
+    # 该组织的MSP证书路径
+    cryptoPath: ./crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp
+
+
+# orderer节点配置
+orderers:
+  # orderer节点域名
+  orderer.example.com:
+    # 用于grpc通信
+    url: 127.0.0.1:7050 # 或 grpcs://localhost:7050
+
+    # grpc配置
+    grpcOptions:
+      # 与前面orderer节点域名保持一致
+      ssl-target-name-override: orderer.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+
+# peer节点配置
+peers:
+  peer0.org1.example.com:
+    url: 127.0.0.1:27051 # 此url用于发送背书和查询请求
+    eventUrl: 127.0.0.1:27053 # 此url用于连接EventHub并注册事件侦听器
+
+    # grpc配置
+    grpcOptions:
+      # 与前面peer节点域名保持一致
+      ssl-target-name-override: peer0.org1.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+
+  peer0.org2.example.com:
+    url: 127.0.0.1:37051 # 此url用于发送背书和查询请求
+    eventUrl: 127.0.0.1:37053 # 此url用于连接EventHub并注册事件侦听器
+
+    # grpc配置
+    grpcOptions:
+      # 与前面peer节点域名保持一致
+      ssl-target-name-override: peer0.org2.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+```
+
+PS：
+
+- 注意 yaml 文件的格式，对齐、冒号、冒号后加空格等。
+
+-  user not found 是因为 cryptoPath 配置路径有问题，使用绝对路径，建议Admin改为{userName}。
+
+- peer 节点的 url 和 eventUrl 对应的端口号在 docker-compose-base.yaml 中可以找的。
+
+- cryptoconfig 路径使用绝对路径。
+
+- url 和 eventUrl 最好使用 grpcs://127.0.0.1:7053 这种格式。
+
+- 交易需要 orderer 节点参与，注意修改 orderers 的 url 和 tlsCACerts。
+
+- 如果报错 ca.cert 错误，在 grpcOptions 下面增加配置：
+
+  - ```yaml
+        tlsCACerts:
+          path: /home/netter/go/workspace/src/hyperledger/fabric-sdk-go-test/conf/crypto-config/peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem
+    ```
+
+# 11 fabric实战
+
+## 11.1 业务流程
+
+1. 个人认证、个人信息上传（登录、注册）——公安局链码
+2. 房屋信息认证、房屋信息上传——房管局链码
+3. 征信认证——征信中心链码
+4. 房屋租赁——租赁链码
+5. 账号管理——账号链码
+
+一个 orderer 节点。
+
+三个组织：公安局、房管局、征信中心，每个组织下包含两个 peer 节点。
+
+五个通道：公安局、房管局、征信中心、租赁、账号，每个通道安装对应的链码。
+
+## 11.2 fabric网络搭建
+
+linux 环境搭建。
+
+yaml 配置文件编写。
+
+shell 启动脚本编写。
+
+shell 停止脚本编写。
+
+创建“公安局”通道，将公安局组织下的 peer 节点加入通道，安装公安局链码，初始化链码。
+
+创建“房管局”通道，将房管局组织下的 peer 节点加入通道，安装房管局链码，初始化链码。
+
+创建“征信中心”通道，将征信中心组织下的 peer 节点加入通道，安装征信中心链码，初始化链码。
+
+创建“租赁”通道，将租赁组织下的 peer 节点加入通道，安装租赁链码，初始化链码。
+
+创建“账号管理”通道，将账号管理组织下的 peer 节点加入通道，安装账号管理链码，初始化链码。
+
+## 11.3 链码功能
+
+公安局链码：
+
+- 个人认证，如果没有，拒绝注册。
+- 个人信息上传。
+- ```json
+  // 信息内容：身份证号、姓名、年龄、地址
+  {"id_card":"{"name":"zs","age":"18","addr":"xxx"}"}
+  ```
+
+房管局链码：
+
+- 房管局进行房屋认证，认证通过后才可以展示出来进行租赁。
+- 户主去房管局备案，房管局上传房屋信息。
+- ```json
+  // 房屋编号，房屋所有人，房屋地址，房屋类型
+  {"id_house":"{"owner":"zs","addr_house":"xxx","type_house":"value"}"}
+  ```
+
+征信中心链码：
+
+- 租户租房时先查看征信信息，如果征信不行，则不允许租房。
+- 征信中心上传个人征信信息。
+- ```json
+  // 身份证号，征信级别（A，B，C信誉依次递减，C不允许租房）
+  {"id_card":"A"}
+  ```
+
+租赁链码：
+
+- 公安局个人信息认证。
+
+- 房管局房屋认证。
+
+- 征信中心认证。
+
+- 认证通关后，租户和房东线下签订合同，然后将租赁合同照片上传，体现租户身份证号、合同编号和房屋编号三个信息。
+
+- ```json
+  // 合同管理：合同编号（key），租户身份证号，房屋 id ，合同图片 hash
+  {"id_contract":"{"id_tenant":"value","id_house":"value","hash_contractImg":"value"}"}
+  ```
+
+- ```json
+  // 交易管理：订单编号（时间戳，六位随机数字保证唯一），房东身份证号，租户身份证号，房东姓名，租户姓名，房屋编号，租金，分期，交易时间，合同编号，备注。（key 为订单编号-期数）
+  {"":"{"id_order":"value","period":"value","id_landlord":"value","id_tenant":"value","name_landlord":"value","name_tenant":"value","id_house":"value","rent":"value","time_tx":"value","id_contract":"value","desc":"value"}"}
+  ```
+
+账号管理链码：
+
+- 公安局账号注册和登录。
+- 房管局账号注册和登录。
+- 征信中心账号注册和登录。
+- 个人信息注册和登录。
+
+## 11.4 配置文件修改
+
+crypto-config.yaml
+
+```yaml
+
+# ---------------------------------------------------------------------------
+# "OrdererOrgs" - Definition of organizations managing orderer nodes
+# ---------------------------------------------------------------------------
+OrdererOrgs:
+  # ---------------------------------------------------------------------------
+  # Orderer 排序节点组织
+  # ---------------------------------------------------------------------------
+  - Name: Orderer
+    Domain: example.com
+
+    # ---------------------------------------------------------------------------
+    # "Specs" - See PeerOrgs below for complete description
+    # ---------------------------------------------------------------------------
+    Specs:
+      - Hostname: orderer
+
+# ---------------------------------------------------------------------------
+# "PeerOrgs" - Definition of organizations managing peer nodes
+# ---------------------------------------------------------------------------
+PeerOrgs:
+  # ---------------------------------------------------------------------------
+  # Police 公安局组织
+  # ---------------------------------------------------------------------------
+  - Name: Police
+    Domain: police.example.com
+
+    # peer count
+    Template:
+      Count: 2
+      #Hostname: peer0,peer1,peer2 and so on
+    Users:
+      Count: 1
+
+  # ---------------------------------------------------------------------------
+  # Housemng 房管局组织
+  # ---------------------------------------------------------------------------
+  - Name: Housemng
+    Domain: housemng.example.com
+    Template:
+      Count: 2
+    Users:
+      Count: 1
+
+  # ---------------------------------------------------------------------------
+  # Credit 征信中心组织
+  # ---------------------------------------------------------------------------
+  - Name: Credit
+    Domain: credit.example.com
+    Template:
+      Count: 2
+    Users:
+      Count: 1
+```
+
+configtx.yaml
+
+```yaml
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+---
+
+################################################################################
+#
+#   Section: Organizations
+#
+#   - This section defines the different organizational identities which will
+#   be referenced later in the configuration.
+#
+################################################################################
+Organizations:
+
+  # orderer 组织
+  - &OrdererOrg
+    Name: OrdererMSP
+    ID: OrdererMSP
+    MSPDir: crypto-config/ordererOrganizations/example.com/msp
+
+  # peer 组织
+  - &PoliceOrg
+    Name: PoliceMSP
+    ID: PoliceMSP
+    MSPDir: crypto-config/peerOrganizations/police.example.com/msp
+    AnchorPeers:
+      - Host: peer0.police.example.com
+        Port: 7051
+
+  - &HousemngOrg
+    Name: HousemngMSP
+    ID: HousemngMSP
+    MSPDir: crypto-config/peerOrganizations/housemng.example.com/msp
+    AnchorPeers:
+      - Host: peer0.housemng.example.com
+        Port: 7051
+
+  - &CreditOrg
+    Name: CreditMSP
+    ID: CreditMSP
+    MSPDir: crypto-config/peerOrganizations/credit.example.com/msp
+    AnchorPeers:
+      - Host: peer0.credit.example.com
+        Port: 7051
+
+
+################################################################################
+#
+#   SECTION: Orderer
+#
+#   - This section defines the values to encode into a config transaction or
+#   genesis block for orderer related parameters.
+#
+################################################################################
+Orderer: &OrdererDefaults
+
+  # Orderer Type: The orderer implementation to start.
+  # Available types are "solo" and "kafka".
+  OrdererType: solo
+
+  Addresses: #排序节点的域名
+    - orderer.example.com:7050
+
+  # Batch Timeout: The amount of time to wait before creating a batch.
+  BatchTimeout: 2s
+
+  # Batch Size: Controls the number of messages batched into a block.
+  BatchSize:
+
+    # Max Message Count: The maximum number of messages to permit in a
+    # batch.
+    MaxMessageCount: 100
+
+    # Absolute Max Bytes: The absolute maximum number of bytes allowed for
+    # the serialized messages in a batch. If the "kafka" OrdererType is
+    # selected, set 'message.max.bytes' and 'replica.fetch.max.bytes' on the
+    # Kafka brokers to a value that is larger than this one.
+    AbsoluteMaxBytes: 98 MB
+
+    # Preferred Max Bytes: The preferred maximum number of bytes allowed for
+    # the serialized messages in a batch. A message larger than the
+    # preferred max bytes will result in a batch larger than preferred max
+    # bytes.
+    PreferredMaxBytes: 512 KB
+
+  # Max Channels is the maximum number of channels to allow on the ordering
+  # network. When set to 0, this implies no maximum number of channels.
+  MaxChannels: 0
+
+  Kafka:
+    # Brokers: A list of Kafka brokers to which the orderer connects.
+    # NOTE: Use IP:port notation
+    Brokers:
+      - 127.0.0.1:9092
+
+  # Organizations is the list of orgs which are defined as participants on
+  # the orderer side of the network.
+  Organizations:
+
+################################################################################
+#
+#   SECTION: Application
+#
+#   - This section defines the values to encode into a config transaction or
+#   genesis block for application related parameters.
+#
+################################################################################
+Application: &ApplicationDefaults
+
+  # Organizations is the list of orgs which are defined as participants on
+  # the application side of the network.
+  Organizations:
+
+################################################################################
+#
+#   Profiles
+#
+#   - Different configuration profiles may be encoded here to be specified
+#   as parameters to the configtxgen tool.  The profiles which specify consortiums
+#   are to be used for generating the orderer genesis block.  With the correct
+#   consortium members defined in the orderer genesis block, channel creation
+#   requests may be generated with only the org member names and a consortium name
+#
+################################################################################
+Profiles:
+
+    #创世块命令的配置
+    #命令名称GenGennesis和GenChannel可以更改
+    GenGenesis:
+      Orderer:
+        <<: *OrdererDefaults
+        Organizations:
+          - *OrdererOrg
+      
+      Consortiums:
+        SampleConsortium:
+          Organizations: 
+          #Peer节点组织
+            - *PoliceOrg
+            - *HousemngOrg
+            - *CreditOrg
+
+    #通道命令的配置
+    GenChannel:
+      #与上面Consortiums中的SampleConsortium保持一致
+      Consortium: SampleConsortium
+      Application:
+        <<: *ApplicationDefaults
+        Organizations:
+          - *PoliceOrg
+          - *HousemngOrg
+          - *CreditOrg
+```
+
+docker-compose-cli.yaml
+
+```yaml
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+version: '2'
+
+services:
+
+  orderer.example.com:
+    extends:
+      file:   base/docker-compose-base.yaml
+      service: orderer.example.com
+    container_name: orderer.example.com
+
+  peer0.police.example.com:
+    container_name: peer0.police.example.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer0.police.example.com
+
+  peer1.police.example.com:
+    container_name: peer1.police.example.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: peer1.police.example.com
+
+  peer0.housemng.example.com:
+    container_name: peer0.housemng.example.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer0.housemng.example.com
+
+  peer1.housemng.example.com:
+    container_name: peer1.housemng.example.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: peer1.housemng.example.com
+
+  peer0.credit.example.com:
+    container_name: peer0.credit.example.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: peer0.credit.example.com
+
+  peer1.credit.example.com:
+    container_name: peer1.credit.example.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: peer1.credit.example.com
+
+
+  cli_police:
+    container_name: cli_police
+    image: hyperledger/fabric-tools:latest
+    tty: true
+    environment:
+      - GODEBUG=netdns=go
+      - GOPATH=/opt/gopath
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      # 日志级别：critical、error、warning、notice、info、debug
+      - CORE_LOGGING_LEVEL=DEBUG
+      - CORE_PEER_ID=policePeer0
+      # 要连接的peer节点
+      - CORE_PEER_ADDRESS=peer0.police.example.com:7051
+      # peer组织ID
+      - CORE_PEER_LOCALMSPID=PoliceMSP
+      # 通信时是否使用tls加密
+      - CORE_PEER_TLS_ENABLED=true
+      # tls证书文件
+      - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer0.police.example.com/tls/server.crt
+      # tls私钥文件
+      - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer0.police.example.com/tls/server.key
+      # 根证书文件
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer0.police.example.com/tls/ca.crt
+      # 指定客户端的身份、管理员身份目录
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/users/Admin@police.example.com/msp
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: /bin/bash #-c './scripts/script.sh ${CHANNEL_NAME}; sleep $TIMEOUT'
+    volumes:
+        - /var/run/:/host/var/run/
+        - ./chaincode/go/police/:/opt/gopath/src/github.com/hyperledger/fabric/chaincode/go/police
+        - ./crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
+        #- ./scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
+        - ./channel-artifacts:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+    depends_on:
+      - orderer.example.com
+      - peer0.police.example.com
+      - peer1.police.example.com
+      - peer0.housemng.example.com
+      - peer1.housemng.example.com
+      - peer0.credit.example.com
+      - peer1.credit.example.com
+
+  cli_housemng:
+    container_name: cli_housemng
+    image: hyperledger/fabric-tools:latest
+    tty: true
+    environment:
+      - GODEBUG=netdns=go
+      - GOPATH=/opt/gopath
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      # 日志级别：critical、error、warning、notice、info、debug
+      - CORE_LOGGING_LEVEL=DEBUG
+      - CORE_PEER_ID=housemngPeer0
+      # 要连接的peer节点
+      - CORE_PEER_ADDRESS=peer0.housemng.example.com:7051
+      # peer组织ID
+      - CORE_PEER_LOCALMSPID=HousemngMSP
+      # 通信时是否使用tls加密
+      - CORE_PEER_TLS_ENABLED=true
+      # tls证书文件
+      - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer0.housemng.example.com/tls/server.crt
+      # tls私钥文件
+      - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer0.housemng.example.com/tls/server.key
+      # 根证书文件
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer0.housemng.example.com/tls/ca.crt
+      # 指定客户端的身份、管理员身份目录
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/users/Admin@housemng.example.com/msp
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: /bin/bash #-c './scripts/script.sh ${CHANNEL_NAME}; sleep $TIMEOUT'
+    volumes:
+      - /var/run/:/host/var/run/
+      - ./chaincode/go/housemng:/opt/gopath/src/github.com/hyperledger/fabric/chaincode/go/housemng
+      - ./crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
+      #- ./scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
+      - ./channel-artifacts:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+    depends_on:
+      - orderer.example.com
+      - peer0.police.example.com
+      - peer1.police.example.com
+      - peer0.housemng.example.com
+      - peer1.housemng.example.com
+      - peer0.credit.example.com
+      - peer1.credit.example.com
+
+  cli_credit:
+    container_name: cli_credit
+    image: hyperledger/fabric-tools:latest
+    tty: true
+    environment:
+      - GODEBUG=netdns=go
+      - GOPATH=/opt/gopath
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      # 日志级别：critical、error、warning、notice、info、debug
+      - CORE_LOGGING_LEVEL=DEBUG
+      - CORE_PEER_ID=creditPeer0
+      # 要连接的peer节点
+      - CORE_PEER_ADDRESS=peer0.credit.example.com:7051
+      # peer组织ID
+      - CORE_PEER_LOCALMSPID=CreditMSP
+      # 通信时是否使用tls加密
+      - CORE_PEER_TLS_ENABLED=true
+      # tls证书文件
+      - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer0.credit.example.com/tls/server.crt
+      # tls私钥文件
+      - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer0.credit.example.com/tls/server.key
+      # 根证书文件
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer0.credit.example.com/tls/ca.crt
+      # 指定客户端的身份、管理员身份目录
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/users/Admin@credit.example.com/msp
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: /bin/bash #-c './scripts/script.sh ${CHANNEL_NAME}; sleep $TIMEOUT'
+    volumes:
+      - /var/run/:/host/var/run/
+      - ./chaincode/go/credit/:/opt/gopath/src/github.com/hyperledger/fabric/chaincode/go/credit
+      - ./crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
+      #- ./scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
+      - ./channel-artifacts:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+    depends_on:
+      - orderer.example.com
+      - peer0.police.example.com
+      - peer1.police.example.com
+      - peer0.housemng.example.com
+      - peer1.housemng.example.com
+      - peer0.credit.example.com
+      - peer1.credit.example.com
+```
+
+docker-compose-base.yaml
+
+```yaml
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+version: '2'
+
+services:
+
+  orderer.example.com:
+    container_name: orderer.example.com
+    image: hyperledger/fabric-orderer:latest
+    environment:
+      - ORDERER_GENERAL_LOGLEVEL=debug
+      - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
+      - ORDERER_GENERAL_GENESISMETHOD=file
+      # 创世块对应的文件，不是指本地的，而是docker中的，与下面的volumes进行映射相关联
+      - ORDERER_GENERAL_GENESISFILE=/var/hyperledger/orderer/orderer.genesis.block
+      - ORDERER_GENERAL_LOCALMSPID=OrdererMSP
+      - ORDERER_GENERAL_LOCALMSPDIR=/var/hyperledger/orderer/msp
+      # enabled TLS
+      - ORDERER_GENERAL_TLS_ENABLED=true
+      - ORDERER_GENERAL_TLS_PRIVATEKEY=/var/hyperledger/orderer/tls/server.key
+      - ORDERER_GENERAL_TLS_CERTIFICATE=/var/hyperledger/orderer/tls/server.crt
+      - ORDERER_GENERAL_TLS_ROOTCAS=[/var/hyperledger/orderer/tls/ca.crt]
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric
+    command: orderer
+    volumes:
+    - ../channel-artifacts/genesis.block:/var/hyperledger/orderer/orderer.genesis.block
+    - ../crypto-config/ordererOrganizations/example.com/orderers/orderer.example.com/msp:/var/hyperledger/orderer/msp
+    - ../crypto-config/ordererOrganizations/example.com/orderers/orderer.example.com/tls/:/var/hyperledger/orderer/tls
+    ports:
+      - 7050:7050
+
+  peer0.police.example.com:
+    container_name: peer0.police.example.com
+    extends:
+      file: peer-base.yaml
+      service: peer-base
+    environment:
+      - CORE_PEER_ID=peer0.police.example.com
+      - CORE_PEER_ADDRESS=peer0.police.example.com:7051
+      - CORE_PEER_CHAINCODELISTENADDRESS=peer0.police.example.com:7052
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.police.example.com:7051
+      - CORE_PEER_LOCALMSPID=PoliceMSP
+    volumes:
+        - /var/run/:/host/var/run/
+        - ../crypto-config/peerOrganizations/police.example.com/peers/peer0.police.example.com/msp:/etc/hyperledger/fabric/msp
+        - ../crypto-config/peerOrganizations/police.example.com/peers/peer0.police.example.com/tls:/etc/hyperledger/fabric/tls
+    ports:
+      - 7051:7051
+      - 7052:7052
+      - 7053:7053
+
+  peer1.police.example.com:
+    container_name: peer1.police.example.com
+    extends:
+      file: peer-base.yaml
+      service: peer-base
+    environment:
+      - CORE_PEER_ID=peer1.police.example.com
+      - CORE_PEER_ADDRESS=peer1.police.example.com:7051
+      - CORE_PEER_CHAINCODELISTENADDRESS=peer1.police.example.com:7052
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer1.police.example.com:7051
+      - CORE_PEER_LOCALMSPID=PoliceMSP
+    volumes:
+        - /var/run/:/host/var/run/
+        - ../crypto-config/peerOrganizations/police.example.com/peers/peer1.police.example.com/msp:/etc/hyperledger/fabric/msp
+        - ../crypto-config/peerOrganizations/police.example.com/peers/peer1.police.example.com/tls:/etc/hyperledger/fabric/tls
+    ports:
+      - 8051:7051
+      - 8052:7052
+      - 8053:7053
+
+  peer0.housemng.example.com:
+    container_name: peer0.housemng.example.com
+    extends:
+      file: peer-base.yaml
+      service: peer-base
+    environment:
+      - CORE_PEER_ID=peer0.housemng.example.com
+      - CORE_PEER_ADDRESS=peer0.housemng.example.com:7051
+      - CORE_PEER_CHAINCODELISTENADDRESS=peer0.housemng.example.com:7052
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.housemng.example.com:7051
+      - CORE_PEER_LOCALMSPID=HousemngMSP
+    volumes:
+      - /var/run/:/host/var/run/
+      - ../crypto-config/peerOrganizations/housemng.example.com/peers/peer0.housemng.example.com/msp:/etc/hyperledger/fabric/msp
+      - ../crypto-config/peerOrganizations/housemng.example.com/peers/peer0.housemng.example.com/tls:/etc/hyperledger/fabric/tls
+    ports:
+      - 9051:7051
+      - 9052:7052
+      - 9053:7053
+
+  peer1.housemng.example.com:
+    container_name: peer1.housemng.example.com
+    extends:
+      file: peer-base.yaml
+      service: peer-base
+    environment:
+      - CORE_PEER_ID=peer1.housemng.example.com
+      - CORE_PEER_ADDRESS=peer1.housemng.example.com:7051
+      - CORE_PEER_CHAINCODELISTENADDRESS=peer1.housemng.example.com:7052
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer1.housemng.example.com:7051
+      - CORE_PEER_LOCALMSPID=HousemngMSP
+    volumes:
+      - /var/run/:/host/var/run/
+      - ../crypto-config/peerOrganizations/housemng.example.com/peers/peer1.housemng.example.com/msp:/etc/hyperledger/fabric/msp
+      - ../crypto-config/peerOrganizations/housemng.example.com/peers/peer1.housemng.example.com/tls:/etc/hyperledger/fabric/tls
+    ports:
+      - 10051:7051
+      - 10052:7052
+      - 10053:7053
+
+  peer0.credit.example.com:
+    container_name: peer0.credit.example.com
+    extends:
+      file: peer-base.yaml
+      service: peer-base
+    environment:
+      - CORE_PEER_ID=peer0.credit.example.com
+      - CORE_PEER_ADDRESS=peer0.credit.example.com:7051
+      - CORE_PEER_CHAINCODELISTENADDRESS=peer0.credit.example.com:7052
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.credit.example.com:7051
+      - CORE_PEER_LOCALMSPID=CreditMSP
+    volumes:
+      - /var/run/:/host/var/run/
+      - ../crypto-config/peerOrganizations/credit.example.com/peers/peer0.credit.example.com/msp:/etc/hyperledger/fabric/msp
+      - ../crypto-config/peerOrganizations/credit.example.com/peers/peer0.credit.example.com/tls:/etc/hyperledger/fabric/tls
+    ports:
+      - 11051:7051
+      - 11052:7052
+      - 11053:7053
+
+  peer1.credit.example.com:
+    container_name: peer1.credit.example.com
+    extends:
+      file: peer-base.yaml
+      service: peer-base
+    environment:
+      - CORE_PEER_ID=peer1.credit.example.com
+      - CORE_PEER_ADDRESS=peer1.credit.example.com:7051
+      - CORE_PEER_CHAINCODELISTENADDRESS=peer1.credit.example.com:7052
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer1.credit.example.com:7051
+      - CORE_PEER_LOCALMSPID=CreditMSP
+    volumes:
+      - /var/run/:/host/var/run/
+      - ../crypto-config/peerOrganizations/credit.example.com/peers/peer1.credit.example.com/msp:/etc/hyperledger/fabric/msp
+      - ../crypto-config/peerOrganizations/credit.example.com/peers/peer1.credit.example.com/tls:/etc/hyperledger/fabric/tls
+    ports:
+      - 12051:7051
+      - 12052:7052
+      - 12053:7053
+```
+
+peer-base.yaml
+
+```yaml
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+version: '2'
+services:
+  peer-base:
+    image: hyperledger/fabric-peer:latest
+    environment:
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      # the following setting starts chaincode containers on the same
+      # bridge network as the peers
+      # https://docs.docker.com/compose/networking/
+      # 与配置文件所在目录名称保持一致，如 /src/项目名称/fabric-network/ ,则为fabric-network_default
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=fabric-network_default
+      #- CORE_LOGGING_LEVEL=ERROR
+      - CORE_LOGGING_LEVEL=DEBUG
+      - CORE_PEER_TLS_ENABLED=true
+      # 是否自动选举leader节点，建议设置为true了，当一个leader节点挂掉后自动选举一个新的leader节点
+      - CORE_PEER_GOSSIP_USELEADERELECTION=true
+      # 当前节点是否是leader节点，若设置自动选举，则设置为false
+      - CORE_PEER_GOSSIP_ORGLEADER=false
+      - CORE_PEER_PROFILE_ENABLED=true
+      - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: peer node start
+```
+
+## 11.5 启动脚本
+
+start.sh
+
+```shell
+#!/bin/bash
+
+echo "开始下载镜像..."
+./download-dockerimages.sh
+echo "下载镜像结束"
+
+echo "开始生成证书..."
+cryptogen generate --config ./crypto-config.yaml
+echo "生成证书结束"
+
+echo "开始生成创世块和通道..."
+mkdir channel-artifacts
+configtxgen -profile GenGenesis -outputBlock ./channel-artifacts/genesis.block
+configtxgen -profile GenChannel -channelID policechannel -outputCreateChannelTx ./channel-artifacts/policechannel.tx
+configtxgen -profile GenChannel -channelID housemngchannel -outputCreateChannelTx ./channel-artifacts/housemngchannel.tx
+configtxgen -profile GenChannel -channelID creditchannel -outputCreateChannelTx ./channel-artifacts/creditchannel.tx
+echo "生成创世块和通道结束"
+
+echo "开始启动docker-compose..."
+docker-compose -f ./docker-compose-cli.yaml up -d
+echo "启动docker-compose结束"
+
+sleep 5
+
+echo "开始创建通道"
+docker exec cli_police peer channel create -o orderer.example.com:7050 -c policechannel -f ./channel-artifacts/policechannel.tx --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+docker exec cli_housemng peer channel create -o orderer.example.com:7050 -c housemngchannel -f ./channel-artifacts/housemngchannel.tx --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+docker exec cli_ciredit peer channel create -o orderer.example.com:7050 -c creditchannel -f ./channel-artifacts/creditchannel.tx --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+echo "创建通道结束"
+
+echo "开始将当前peer节点加入通道"
+docker exec cli_police peer channel join -b policechannel.block
+docker exec cli_housemng peer channel join -b housemngchannel.block
+docker exec cli_credit peer channel join -b creditchannel.block
+echo "当前peer节点加入通道结束"
+
+# todo 切换peer1节点并加入通道
+
+echo "开始安装链码"
+docker exec cli_police peer chaincode install -n police -p github.com/hyperledger/fabric/chaincode/go/police -v 1.0
+docker exec cli_housemng peer chaincode install -n housemng -p github.com/hyperledger/fabric/chaincode/go/housemng -v 1.0
+docker exec cli_credit peer chaincode install -n credit -p github.com/hyperledger/fabric/chaincode/go/credit -v 1.0
+echo "链码安装结束"
+
+echo "开始初始化链码"
+docker exec cli_police peer chaincode instantiate -o orderer.example.com:7050 -C policechannel -c '{"Args":["init","a","200","b","300"]}' -n police -P "OR ('PoliceOrg.member')" -v 1.0 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+docker exec cli_housemng peer chaincode instantiate -o orderer.example.com:7050 -C housemngchannel -c '{"Args":["init","a","200","b","300"]}' -n housemng -P "OR ('HousemngOrg.member')" -v 1.0 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+docker exec cli_credit peer chaincode instantiate -o orderer.example.com:7050 -C creditchannel -c '{"Args":["init","a","200","b","300"]}' -n credit -P "OR ('CreditOrg.member')" -v 1.0 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+echo "链码初始化结束"
+```
+
+## 11.6 节点切换
+
+peer0.police.example.com：
+
+```shell
+	export CORE_PEER_ID=policePeer0 CORE_PEER_ADDRESS=peer0.police.example.com:7051 CORE_PEER_LOCALMSPID=PoliceMSP CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer0.police.example.com/tls/server.crt CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer0.police.example.com/tls/server.key CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer0.police.example.com/tls/ca.crt CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/users/Admin@police.example.com/msp
+```
+
+peer1.police.example.com：
+
+```shell
+	export CORE_PEER_ID=policePeer1 CORE_PEER_ADDRESS=peer1.police.example.com:7051 CORE_PEER_LOCALMSPID=PoliceMSP CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer1.police.example.com/tls/server.crt CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer1.police.example.com/tls/server.key CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer1.police.example.com/tls/ca.crt CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/users/Admin@police.example.com/msp
+```
+
+peer0.housemng.example.com：
+
+```shell
+	export CORE_PEER_ID=housemngPeer0 CORE_PEER_ADDRESS=peer0.housemng.example.com:7051 CORE_PEER_LOCALMSPID=HousemngMSP CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer0.housemng.example.com/tls/server.crt CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer0.housemng.example.com/tls/server.key CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer0.housemng.example.com/tls/ca.crt CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/users/Admin@housemng.example.com/msp
+```
+
+peer1.housemng.example.com：
+
+```shell
+	export CORE_PEER_ID=housemngPeer1 CORE_PEER_ADDRESS=peer1.housemng.example.com:7051 CORE_PEER_LOCALMSPID=HousemngMSP CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer1.housemng.example.com/tls/server.crt CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer1.housemng.example.com/tls/server.key CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer1.housemng.example.com/tls/ca.crt CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/users/Admin@housemng.example.com/msp
+```
+
+peer0.credit.example.com：
+
+```shell
+	export CORE_PEER_ID=creditPeer0 CORE_PEER_ADDRESS=peer0.credit.example.com:7051 CORE_PEER_LOCALMSPID=CreditMSP CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer0.credit.example.com/tls/server.crt CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer0.credit.example.com/tls/server.key CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer0.credit.example.com/tls/ca.crt CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/users/Admin@credit.example.com/msp
+```
+
+peer1.credit.example.com：
+
+```shell
+	export CORE_PEER_ID=creditPeer1 CORE_PEER_ADDRESS=peer1.credit.example.com:7051 CORE_PEER_LOCALMSPID=CreditMSP CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer1.credit.example.com/tls/server.crt CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer1.credit.example.com/tls/server.key CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer1.credit.example.com/tls/ca.crt CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/users/Admin@credit.example.com/msp
+```
+
