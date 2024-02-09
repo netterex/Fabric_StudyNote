@@ -1520,6 +1520,10 @@ shell 停止脚本编写。
 - 征信中心账号注册和登录。
 - 个人信息注册和登录。
 
+PS：链码删除：stub.DelState(key)。
+
+​		链码更新：先查询，再删除原来的key，最后添加新的key。
+
 ## 11.4 配置文件修改
 
 crypto-config.yaml
@@ -2182,6 +2186,7 @@ peer1.police.example.com：
 
 ```shell
 	export CORE_PEER_ID=policePeer1 CORE_PEER_ADDRESS=peer1.police.example.com:7051 CORE_PEER_LOCALMSPID=PoliceMSP CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer1.police.example.com/tls/server.crt CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer1.police.example.com/tls/server.key CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer1.police.example.com/tls/ca.crt CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/users/Admin@police.example.com/msp
+	peer channel join -b policechannel.block
 ```
 
 peer0.housemng.example.com：
@@ -2194,6 +2199,7 @@ peer1.housemng.example.com：
 
 ```shell
 	export CORE_PEER_ID=housemngPeer1 CORE_PEER_ADDRESS=peer1.housemng.example.com:7051 CORE_PEER_LOCALMSPID=HousemngMSP CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer1.housemng.example.com/tls/server.crt CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer1.housemng.example.com/tls/server.key CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer1.housemng.example.com/tls/ca.crt CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/users/Admin@housemng.example.com/msp
+	peer channel join -b housemngchannel.block
 ```
 
 peer0.credit.example.com：
@@ -2206,5 +2212,605 @@ peer1.credit.example.com：
 
 ```shell
 	export CORE_PEER_ID=creditPeer1 CORE_PEER_ADDRESS=peer1.credit.example.com:7051 CORE_PEER_LOCALMSPID=CreditMSP CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer1.credit.example.com/tls/server.crt CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer1.credit.example.com/tls/server.key CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer1.credit.example.com/tls/ca.crt CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/users/Admin@credit.example.com/msp
+	peer channel join -b creditchannel.block
 ```
 
+## 11.7 链码安装、实例化及查询测试
+
+policeCc.go
+
+```shell
+	# 安装
+	peer chaincode install -n policeCc -v 1.0 -p github.com/hyperledger/fabric/chaincode/go/police
+	# 实例化
+	peer chaincode instantiate -o orderer.example.com:7050 -C policechannel -n policeCc -P "OR ('PoliceMSP.member','HousemngMSP.member','CreditMSP.member')" -c '{"Args":["init","641111111111111111","zs","18","xxx"]}' -v 1.0 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+	# 查询
+	peer chaincode query -C policechannel -n policeCc -c '{"Args":["query","641111111111111111"]}'
+```
+
+housemngCc.go
+
+```shell
+	# 安装
+	peer chaincode install -n housemngCc -v 1.0 -p github.com/hyperledger/fabric/chaincode/go/housemng
+	# 实例化
+	peer chaincode instantiate -o orderer.example.com:7050 -C housemngchannel -n housemngCc -P "OR ('PoliceMSP.member','HousemngMSP.member','CreditMSP.member')" -c '{"Args":["init","00000001","zs","xxx","shangpin"]}' -v 1.0 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+	# 查询
+	peer chaincode query -C housemngchannel -n housemngCc -c '{"Args":["query","00000001"]}'
+```
+
+creditCc.go
+
+```shell
+	# 安装
+	peer chaincode install -n creditCc -v 1.0 -p github.com/hyperledger/fabric/chaincode/go/credit
+	# 实例化
+	peer chaincode instantiate -o orderer.example.com:7050 -C creditchannel -n creditCc -P "OR ('PoliceMSP.member','HousemngMSP.member','CreditMSP.member')" -c '{"Args":["init","641111111111111111","A"]}' -v 1.0 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+	# 查询
+	peer chaincode query -C creditchannel -n creditCc -c '{"Args":["query","641111111111111111"]}'
+```
+
+contractCc.go (安装在 cli_credit 容器下)
+
+```shell
+	# 安装
+	peer chaincode install -n contractCc -v 1.0 -p github.com/hyperledger/fabric/chaincode/go/contract
+	# 实例化
+	peer chaincode instantiate -o orderer.example.com:7050 -C creditchannel -n contractCc -P "OR ('PoliceMSP.member','HousemngMSP.member','CreditMSP.member')" -c '{"Args":["init","000001","641111111111111111","00000001","1523467a7befeee"]}' -v 1.0 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+	# 查询
+	peer chaincode query -C creditchannel -n contractCc -c '{"Args":["query","000001"]}'
+```
+
+transactionCc.go (安装在 cli_credit 容器下)
+
+```shell
+	# 安装
+	peer chaincode install -n transactionCc -v 1.0 -p github.com/hyperledger/fabric/chaincode/go/transaction
+	# 实例化
+	peer chaincode instantiate -o orderer.example.com:7050 -C creditchannel -n transactionCc -P "OR ('PoliceMSP.member','HousemngMSP.member','CreditMSP.member')" -c '{"Args":["init","0000000001","4","641111111111111112","641111111111111113","ls","ww","00000002","1000","2023-12-12 16:38:33","000002","test"]}' -v 1.0 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+	# 查询
+	peer chaincode query -C creditchannel -n transactionCc -c '{"Args":["query","0000000001","4"]}'
+```
+
+userCc.go (安装在 cli_credit 容器下)
+
+```shell
+	# 安装
+	peer chaincode install -n userCc -v 1.0 -p github.com/hyperledger/fabric/chaincode/go/user
+	# 实例化
+	peer chaincode instantiate -o orderer.example.com:7050 -C creditchannel -n userCc -P "OR ('PoliceMSP.member','HousemngMSP.member','CreditMSP.member')" -c '{"Args":["init","4","user","123456","18","female"]}' -v 1.0 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+	# 查询
+	peer chaincode query -C creditchannel -n userCc -c '{"Args":["query","4-user-123456-18-female"]}'
+```
+
+## 11.8 通道配置文件
+
+police-conf.yaml
+
+```yaml
+version: 1.0.0
+
+# 客户端配置
+client:
+  organization: PoliceOrg
+  logging:
+    level: info
+
+  # crypto-config.yaml文件路径，不用写.yaml
+  cryptoconfig:
+    path: $GOPATH/src/fabric-houserental/fabric-network/crypto-config
+
+  # 一些SDK支持可插拔KV存储，使用默认即可
+  credentialStore:
+    path: "/tmp/state-store"
+    cryptoStore:
+      path: /tmp/msp
+
+  # 加密组件的属性，默认即可
+  BCCSP:
+    security:
+      enabled: true
+      default:
+        provider: "SW"
+      hashAlgorithm: "SHA2"
+      softVerify: true
+      level: 256
+
+# 通道配置
+channels:
+  # 通道名称
+  policechannel:
+    # orderer节点配置
+    orderers:
+      - orderer.example.com
+
+    peers: # 对应组织下的所有peer节点，和client中的organization组织保持一致
+      peer0.police.example.com:
+        endorsingPeer: true
+        chaincodeQuery: true
+        ledgerQuery: true
+        eventSource: true
+      peer1.police.example.com:
+        endorsingPeer: true
+        chaincodeQuery: true
+        ledgerQuery: true
+        eventSource: true
+
+    # 策略配置，默认即可
+    policies:
+      queryChannelConfig:
+        minResponses: 1
+        maxTargets: 1
+        retryOpts:
+          attempts: 5
+          initialBackoff: 500ms
+          maxBackoff: 5s
+          backoffFactor: 2.0
+
+# 所有组织配置，包括所有peer组织和orderer组织
+organizations:
+  # 组织名称
+  PoliceOrg:
+    # 该组织的MSPID
+    mspid: PoliceMSP
+    # 该组织的MSP证书路径
+    cryptoPath: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/police.example.com/users/Admin@police.example.com/msp
+
+    # 这个组织下属的节点
+    peers:
+      - peer0.police.example.com
+      - peer1.police.example.com
+
+    certificateAuthorities:
+  #      - ca.org1.example.com
+
+  HousemngOrg:
+    # 该组织的MSPID
+    mspid: HousemngMSP
+    # 该组织的MSP证书路径
+    cryptoPath: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/housemng.example.com/users/Admin@housemng.example.com/msp
+
+    # 这个组织下属的节点
+    peers:
+      - peer0.housemng.example.com
+      - peer1.housemng.example.com
+
+    certificateAuthorities:
+  #      - ca.org2.example.com
+
+  CreditOrg:
+    # 该组织的MSPID
+    mspid: CreditMSP
+    # 该组织的MSP证书路径
+    cryptoPath: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/credit.example.com/users/Admin@credit.example.com/msp
+
+    # 这个组织下属的节点
+    peers:
+      - peer0.credit.example.com
+      - peer1.credit.example.com
+
+    certificateAuthorities:
+  #      - ca.org2.example.com
+
+  OrdererOrg:
+    # 该组织的MSPID
+    mspid: OrdererMSP
+    # 该组织的MSP证书路径
+    cryptoPath: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp
+
+
+# orderer节点配置
+orderers:
+  # orderer节点域名
+  orderer.example.com:
+    # 用于grpc通信
+    url: grpcs://localhost:7050 # grpcs://localhost:7050，此URL用于发送背书和查询请求
+
+    # grpc配置
+    grpcOptions:
+      # 与前面orderer节点域名保持一致
+      ssl-target-name-override: orderer.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+    tlsCACerts:
+      path: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
+
+# peer节点配置
+peers:
+  peer0.police.example.com:
+    url: grpcs://localhost:7051 # 此url用于发送背书和查询请求
+    eventUrl: grpcs://localhost:7053 # 此url用于连接EventHub并注册事件侦听器
+
+    # grpc配置
+    grpcOptions:
+      # 与前面peer节点域名保持一致
+      ssl-target-name-override: peer0.police.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+    tlsCACerts:
+      path: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/police.example.com/tlsca/tlsca.police.example.com-cert.pem
+
+  peer1.police.example.com:
+    url: grpcs://localhost:8051 # 此url用于发送背书和查询请求
+    eventUrl: grpcs://localhost:8053 # 此url用于连接EventHub并注册事件侦听器
+
+    # grpc配置
+    grpcOptions:
+      # 与前面peer节点域名保持一致
+      ssl-target-name-override: peer1.police.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+    tlsCACerts:
+      path: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/police.example.com/tlsca/tlsca.police.example.com-cert.pem
+```
+
+housemng-conf.yaml
+
+```yaml
+version: 1.0.0
+
+# 客户端配置
+client:
+  organization: HousemngOrg
+  logging:
+    level: info
+
+  # crypto-config.yaml文件路径，不用写.yaml
+  cryptoconfig:
+    path: $GOPATH/src/fabric-houserental/fabric-network/crypto-config
+
+  # 一些SDK支持可插拔KV存储，使用默认即可
+  credentialStore:
+    path: "/tmp/state-store"
+    cryptoStore:
+      path: /tmp/msp
+
+  # 加密组件的属性，默认即可
+  BCCSP:
+    security:
+      enabled: true
+      default:
+        provider: "SW"
+      hashAlgorithm: "SHA2"
+      softVerify: true
+      level: 256
+
+# 通道配置
+channels:
+  # 通道名称
+  housemngchannel:
+    # orderer节点配置
+    orderers:
+      - orderer.example.com
+
+    peers: # 对应组织下的所有peer节点，和client中的organization组织保持一致
+      peer0.housemng.example.com:
+        endorsingPeer: true
+        chaincodeQuery: true
+        ledgerQuery: true
+        eventSource: true
+      peer1.housemng.example.com:
+        endorsingPeer: true
+        chaincodeQuery: true
+        ledgerQuery: true
+        eventSource: true
+
+    # 策略配置，默认即可
+    policies:
+      queryChannelConfig:
+        minResponses: 1
+        maxTargets: 1
+        retryOpts:
+          attempts: 5
+          initialBackoff: 500ms
+          maxBackoff: 5s
+          backoffFactor: 2.0
+
+# 所有组织配置，包括所有peer组织和orderer组织
+organizations:
+  # 组织名称
+  PoliceOrg:
+    # 该组织的MSPID
+    mspid: PoliceMSP
+    # 该组织的MSP证书路径
+    cryptoPath: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/police.example.com/users/Admin@police.example.com/msp
+
+    # 这个组织下属的节点
+    peers:
+      - peer0.police.example.com
+      - peer1.police.example.com
+
+    certificateAuthorities:
+  #      - ca.org1.example.com
+
+  HousemngOrg:
+    # 该组织的MSPID
+    mspid: HousemngMSP
+    # 该组织的MSP证书路径
+    cryptoPath: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/housemng.example.com/users/Admin@housemng.example.com/msp
+
+    # 这个组织下属的节点
+    peers:
+      - peer0.housemng.example.com
+      - peer1.housemng.example.com
+
+    certificateAuthorities:
+  #      - ca.org2.example.com
+
+  CreditOrg:
+    # 该组织的MSPID
+    mspid: CreditMSP
+    # 该组织的MSP证书路径
+    cryptoPath: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/credit.example.com/users/Admin@credit.example.com/msp
+
+    # 这个组织下属的节点
+    peers:
+      - peer0.credit.example.com
+      - peer1.credit.example.com
+
+    certificateAuthorities:
+  #      - ca.org2.example.com
+
+  OrdererOrg:
+    # 该组织的MSPID
+    mspid: OrdererMSP
+    # 该组织的MSP证书路径
+    cryptoPath: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp
+
+
+# orderer节点配置
+orderers:
+  # orderer节点域名
+  orderer.example.com:
+    # 用于grpc通信
+    url: grpcs://localhost:7050 # grpcs://localhost:7050，此URL用于发送背书和查询请求
+
+    # grpc配置
+    grpcOptions:
+      # 与前面orderer节点域名保持一致
+      ssl-target-name-override: orderer.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+    tlsCACerts:
+      path: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
+
+# peer节点配置
+peers:
+  peer0.housemng.example.com:
+    url: grpcs://localhost:9051 # 此url用于发送背书和查询请求
+    eventUrl: grpcs://localhost:9053 # 此url用于连接EventHub并注册事件侦听器
+
+    # grpc配置
+    grpcOptions:
+      # 与前面peer节点域名保持一致
+      ssl-target-name-override: peer0.housemng.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+    tlsCACerts:
+      path: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/housemng.example.com/tlsca/tlsca.housemng.example.com-cert.pem
+
+  peer1.housemng.example.com:
+    url: grpcs://localhost:10051 # 此url用于发送背书和查询请求
+    eventUrl: grpcs://localhost:10053 # 此url用于连接EventHub并注册事件侦听器
+
+    # grpc配置
+    grpcOptions:
+      # 与前面peer节点域名保持一致
+      ssl-target-name-override: peer1.housemng.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+    tlsCACerts:
+      path: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/housemng.example.com/tlsca/tlsca.housemng.example.com-cert.pem
+```
+
+credit-conf.yaml
+
+```yaml
+version: 1.0.0
+
+# 客户端配置
+client:
+  organization: CreditOrg
+  logging:
+    level: info
+
+  # crypto-config.yaml文件路径，不用写.yaml
+  cryptoconfig:
+    path: $GOPATH/src/fabric-houserental/fabric-network/crypto-config
+
+  # 一些SDK支持可插拔KV存储，使用默认即可
+  credentialStore:
+    path: "/tmp/state-store"
+    cryptoStore:
+      path: /tmp/msp
+
+  # 加密组件的属性，默认即可
+  BCCSP:
+    security:
+      enabled: true
+      default:
+        provider: "SW"
+      hashAlgorithm: "SHA2"
+      softVerify: true
+      level: 256
+
+# 通道配置
+channels:
+  # 通道名称
+  creditchannel:
+    # orderer节点配置
+    orderers:
+      - orderer.example.com
+
+    peers: # 对应组织下的所有peer节点，和client中的organization组织保持一致
+      peer0.credit.example.com:
+        endorsingPeer: true
+        chaincodeQuery: true
+        ledgerQuery: true
+        eventSource: true
+      peer1.credit.example.com:
+        endorsingPeer: true
+        chaincodeQuery: true
+        ledgerQuery: true
+        eventSource: true
+
+    # 策略配置，默认即可
+    policies:
+      queryChannelConfig:
+        minResponses: 1
+        maxTargets: 1
+        retryOpts:
+          attempts: 5
+          initialBackoff: 500ms
+          maxBackoff: 5s
+          backoffFactor: 2.0
+
+# 所有组织配置，包括所有peer组织和orderer组织
+organizations:
+  # 组织名称
+  PoliceOrg:
+    # 该组织的MSPID
+    mspid: PoliceMSP
+    # 该组织的MSP证书路径
+    cryptoPath: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/police.example.com/users/Admin@police.example.com/msp
+
+    # 这个组织下属的节点
+    peers:
+      - peer0.police.example.com
+      - peer1.police.example.com
+
+    certificateAuthorities:
+  #      - ca.org1.example.com
+
+  HousemngOrg:
+    # 该组织的MSPID
+    mspid: HousemngMSP
+    # 该组织的MSP证书路径
+    cryptoPath: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/housemng.example.com/users/Admin@housemng.example.com/msp
+
+    # 这个组织下属的节点
+    peers:
+      - peer0.housemng.example.com
+      - peer1.housemng.example.com
+
+    certificateAuthorities:
+  #      - ca.org2.example.com
+
+  CreditOrg:
+    # 该组织的MSPID
+    mspid: CreditMSP
+    # 该组织的MSP证书路径
+    cryptoPath: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/credit.example.com/users/Admin@credit.example.com/msp
+
+    # 这个组织下属的节点
+    peers:
+      - peer0.credit.example.com
+      - peer1.credit.example.com
+
+    certificateAuthorities:
+  #      - ca.org2.example.com
+
+  OrdererOrg:
+    # 该组织的MSPID
+    mspid: OrdererMSP
+    # 该组织的MSP证书路径
+    cryptoPath: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp
+
+
+# orderer节点配置
+orderers:
+  # orderer节点域名
+  orderer.example.com:
+    # 用于grpc通信
+    url: grpcs://localhost:7050 # grpcs://localhost:7050，此URL用于发送背书和查询请求
+
+    # grpc配置
+    grpcOptions:
+      # 与前面orderer节点域名保持一致
+      ssl-target-name-override: orderer.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+    tlsCACerts:
+      path: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
+
+# peer节点配置
+peers:
+  peer0.credit.example.com:
+    url: grpcs://localhost:11051 # 此url用于发送背书和查询请求
+    eventUrl: grpcs://localhost:11053 # 此url用于连接EventHub并注册事件侦听器
+
+    # grpc配置
+    grpcOptions:
+      # 与前面peer节点域名保持一致
+      ssl-target-name-override: peer0.credit.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+    tlsCACerts:
+      path: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/credit.example.com/tlsca/tlsca.credit.example.com-cert.pem
+
+  peer1.credit.example.com:
+    url: grpcs://localhost:12051 # 此url用于发送背书和查询请求
+    eventUrl: grpcs://localhost:12053 # 此url用于连接EventHub并注册事件侦听器
+
+    # grpc配置
+    grpcOptions:
+      # 与前面peer节点域名保持一致
+      ssl-target-name-override: peer1.credit.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+    tlsCACerts:
+      path: $GOPATH/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/credit.example.com/tlsca/tlsca.credit.example.com-cert.pem
+```
+
+# 12 Gin框架
+
+## 12.1 项目结构
+
+/application
+
+│  main.go
+├─conf
+│  │  mysql.json
+│  └─sdk_conf
+│       │  credit-conf.yaml
+│       │  crypto-config.yaml
+│       │  housemng-conf.yaml
+│       │  police-conf.yaml
+├─controller
+├─router
+└─sdk
+     │  contract_sdk.go
+     │  credit_sdk.go
+     │  housemng_sdk.go
+     │  police_sdk.go
+     │  transaction_sdk.go
+     │  user_sdk.go
+
+## 
