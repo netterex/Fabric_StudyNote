@@ -1,0 +1,172 @@
+version: 1.0.0
+
+# 客户端配置
+client:
+  organization: HousemngOrg
+  logging:
+    level: info
+
+  eventService:
+    timeout:
+      connections: 3s
+      registrationResponse: 5s
+  global:
+    timeout:
+      query: 10s
+      execute: 3s
+
+  # crypto-config.yaml文件路径，不用写.yaml
+  cryptoconfig:
+    path: /home/netter/go/workspace/src/fabric-houserental/fabric-network/crypto-config
+
+  # 一些SDK支持可插拔KV存储，使用默认即可
+  credentialStore:
+    path: "/tmp/state-store"
+    cryptoStore:
+      path: /tmp/msp
+
+  # 加密组件的属性，默认即可
+  BCCSP:
+    security:
+      enabled: true
+      default:
+        provider: "SW"
+      hashAlgorithm: "SHA2"
+      softVerify: true
+      level: 256
+
+# 通道配置
+channels:
+  # 通道名称
+  housemngchannel:
+    # orderer节点配置
+    orderers:
+      - orderer.example.com
+
+    peers: # 对应组织下的所有peer节点，和client中的organization组织保持一致
+      peer0.housemng.example.com:
+        endorsingPeer: true
+        chaincodeQuery: true
+        ledgerQuery: true
+        eventSource: true
+      peer1.housemng.example.com:
+        endorsingPeer: true
+        chaincodeQuery: true
+        ledgerQuery: true
+        eventSource: true
+
+    # 策略配置，默认即可
+    policies:
+      queryChannelConfig:
+        minResponses: 1
+        maxTargets: 1
+        retryOpts:
+          attempts: 5
+          initialBackoff: 500ms
+          maxBackoff: 5s
+          backoffFactor: 2.0
+
+# 所有组织配置，包括所有peer组织和orderer组织
+organizations:
+  # 组织名称
+  PoliceOrg:
+    # 该组织的MSPID
+    mspid: PoliceMSP
+    # 该组织的MSP证书路径
+    cryptoPath: /home/netter/go/workspace/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/police.example.com/users/Admin@police.example.com/msp
+
+    # 这个组织下属的节点
+    peers:
+      - peer0.police.example.com
+      - peer1.police.example.com
+
+    certificateAuthorities:
+  #      - ca.org1.example.com
+
+  HousemngOrg:
+    # 该组织的MSPID
+    mspid: HousemngMSP
+    # 该组织的MSP证书路径
+    cryptoPath: /home/netter/go/workspace/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/housemng.example.com/users/Admin@housemng.example.com/msp
+
+    # 这个组织下属的节点
+    peers:
+      - peer0.housemng.example.com
+      - peer1.housemng.example.com
+
+    certificateAuthorities:
+  #      - ca.org2.example.com
+
+  CreditOrg:
+    # 该组织的MSPID
+    mspid: CreditMSP
+    # 该组织的MSP证书路径
+    cryptoPath: /home/netter/go/workspace/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/credit.example.com/users/Admin@credit.example.com/msp
+
+    # 这个组织下属的节点
+    peers:
+      - peer0.credit.example.com
+      - peer1.credit.example.com
+
+    certificateAuthorities:
+  #      - ca.org2.example.com
+
+  OrdererOrg:
+    # 该组织的MSPID
+    mspid: OrdererMSP
+    # 该组织的MSP证书路径
+    cryptoPath: /home/netter/go/workspace/src/fabric-houserental/fabric-network/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp
+
+
+# orderer节点配置
+orderers:
+  # orderer节点域名
+  orderer.example.com:
+    # 用于grpc通信
+    url: grpcs://localhost:7050 # grpcs://localhost:7050，此URL用于发送背书和查询请求
+
+    # grpc配置
+    grpcOptions:
+      # 与前面orderer节点域名保持一致
+      ssl-target-name-override: orderer.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+    tlsCACerts:
+      path: /home/netter/go/workspace/src/fabric-houserental/fabric-network/crypto-config/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
+
+# peer节点配置
+peers:
+  peer0.housemng.example.com:
+    url: grpcs://localhost:9051 # 此url用于发送背书和查询请求
+    eventUrl: grpcs://localhost:9053 # 此url用于连接EventHub并注册事件侦听器
+
+    # grpc配置
+    grpcOptions:
+      # 与前面peer节点域名保持一致
+      ssl-target-name-override: peer0.housemng.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+    tlsCACerts:
+      path: /home/netter/go/workspace/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/housemng.example.com/tlsca/tlsca.housemng.example.com-cert.pem
+
+  peer1.housemng.example.com:
+    url: grpcs://localhost:10051 # 此url用于发送背书和查询请求
+    eventUrl: grpcs://localhost:10053 # 此url用于连接EventHub并注册事件侦听器
+
+    # grpc配置
+    grpcOptions:
+      # 与前面peer节点域名保持一致
+      ssl-target-name-override: peer1.housemng.example.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: true # 非tls连接
+    tlsCACerts:
+      path: /home/netter/go/workspace/src/fabric-houserental/fabric-network/crypto-config/peerOrganizations/housemng.example.com/tlsca/tlsca.housemng.example.com-cert.pem

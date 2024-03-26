@@ -1,0 +1,303 @@
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+version: '2'
+
+services:
+
+  orderer.example.com:
+    extends:
+      file:   base/docker-compose-base.yaml
+      service: orderer.example.com
+    container_name: orderer.example.com
+
+  peer0.police.example.com:
+    container_name: peer0.police.example.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer0.police.example.com
+
+  peer1.police.example.com:
+    container_name: peer1.police.example.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: peer1.police.example.com
+
+  peer0.housemng.example.com:
+    container_name: peer0.housemng.example.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer0.housemng.example.com
+
+  peer1.housemng.example.com:
+    container_name: peer1.housemng.example.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: peer1.housemng.example.com
+
+  peer0.credit.example.com:
+    container_name: peer0.credit.example.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: peer0.credit.example.com
+
+  peer1.credit.example.com:
+    container_name: peer1.credit.example.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: peer1.credit.example.com
+
+
+  cli_police:
+    container_name: cli_police
+    image: hyperledger/fabric-tools:latest
+    tty: true
+    environment:
+      - GODEBUG=netdns=go
+      - GOPATH=/opt/gopath
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      # 日志级别：critical、error、warning、notice、info、debug
+      - CORE_LOGGING_LEVEL=DEBUG
+      - CORE_PEER_ID=policePeer0
+      # 要连接的peer节点
+      - CORE_PEER_ADDRESS=peer0.police.example.com:7051
+      # peer组织ID
+      - CORE_PEER_LOCALMSPID=PoliceMSP
+      # 通信时是否使用tls加密
+      - CORE_PEER_TLS_ENABLED=true
+      # tls证书文件
+      - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer0.police.example.com/tls/server.crt
+      # tls私钥文件
+      - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer0.police.example.com/tls/server.key
+      # 根证书文件
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer0.police.example.com/tls/ca.crt
+      # 指定客户端的身份、管理员身份目录
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/users/Admin@police.example.com/msp
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: /bin/bash #-c './scripts/script.sh ${CHANNEL_NAME}; sleep $TIMEOUT'
+    volumes:
+        - /var/run/:/host/var/run/
+        - ./chaincode/go/:/opt/gopath/src/github.com/hyperledger/fabric/chaincode/go/
+        - ./crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
+        #- ./scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
+        - ./channel-artifacts:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+    depends_on:
+      - orderer.example.com
+      - peer0.police.example.com
+      - peer1.police.example.com
+      - peer0.housemng.example.com
+      - peer1.housemng.example.com
+      - peer0.credit.example.com
+      - peer1.credit.example.com
+
+  cli_police1:
+    container_name: cli_police1
+    image: hyperledger/fabric-tools:latest
+    tty: true
+    environment:
+      - GODEBUG=netdns=go
+      - GOPATH=/opt/gopath
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      # 日志级别：critical、error、warning、notice、info、debug
+      - CORE_LOGGING_LEVEL=DEBUG
+      - CORE_PEER_ID=policePeer1
+      # 要连接的peer节点
+      - CORE_PEER_ADDRESS=peer1.police.example.com:7051
+      # peer组织ID
+      - CORE_PEER_LOCALMSPID=PoliceMSP
+      # 通信时是否使用tls加密
+      - CORE_PEER_TLS_ENABLED=true
+      # tls证书文件
+      - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer1.police.example.com/tls/server.crt
+      # tls私钥文件
+      - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer1.police.example.com/tls/server.key
+      # 根证书文件
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/peers/peer1.police.example.com/tls/ca.crt
+      # 指定客户端的身份、管理员身份目录
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/police.example.com/users/Admin@police.example.com/msp
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: /bin/bash #-c './scripts/script.sh ${CHANNEL_NAME}; sleep $TIMEOUT'
+    volumes:
+      - /var/run/:/host/var/run/
+      - ./chaincode/go/:/opt/gopath/src/github.com/hyperledger/fabric/chaincode/go/
+      - ./crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
+      #- ./scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
+      - ./channel-artifacts:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+    depends_on:
+      - orderer.example.com
+      - peer0.police.example.com
+      - peer1.police.example.com
+      - peer0.housemng.example.com
+      - peer1.housemng.example.com
+      - peer0.credit.example.com
+      - peer1.credit.example.com
+
+  cli_housemng:
+    container_name: cli_housemng
+    image: hyperledger/fabric-tools:latest
+    tty: true
+    environment:
+      - GODEBUG=netdns=go
+      - GOPATH=/opt/gopath
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      # 日志级别：critical、error、warning、notice、info、debug
+      - CORE_LOGGING_LEVEL=DEBUG
+      - CORE_PEER_ID=housemngPeer0
+      # 要连接的peer节点
+      - CORE_PEER_ADDRESS=peer0.housemng.example.com:7051
+      # peer组织ID
+      - CORE_PEER_LOCALMSPID=HousemngMSP
+      # 通信时是否使用tls加密
+      - CORE_PEER_TLS_ENABLED=true
+      # tls证书文件
+      - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer0.housemng.example.com/tls/server.crt
+      # tls私钥文件
+      - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer0.housemng.example.com/tls/server.key
+      # 根证书文件
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer0.housemng.example.com/tls/ca.crt
+      # 指定客户端的身份、管理员身份目录
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/users/Admin@housemng.example.com/msp
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: /bin/bash #-c './scripts/script.sh ${CHANNEL_NAME}; sleep $TIMEOUT'
+    volumes:
+      - /var/run/:/host/var/run/
+      - ./chaincode/go/:/opt/gopath/src/github.com/hyperledger/fabric/chaincode/go/
+      - ./crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
+      #- ./scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
+      - ./channel-artifacts:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+    depends_on:
+      - orderer.example.com
+      - peer0.police.example.com
+      - peer1.police.example.com
+      - peer0.housemng.example.com
+      - peer1.housemng.example.com
+      - peer0.credit.example.com
+      - peer1.credit.example.com
+
+  cli_housemng1:
+    container_name: cli_housemng1
+    image: hyperledger/fabric-tools:latest
+    tty: true
+    environment:
+      - GODEBUG=netdns=go
+      - GOPATH=/opt/gopath
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      # 日志级别：critical、error、warning、notice、info、debug
+      - CORE_LOGGING_LEVEL=DEBUG
+      - CORE_PEER_ID=housemngPeer1
+      # 要连接的peer节点
+      - CORE_PEER_ADDRESS=peer1.housemng.example.com:7051
+      # peer组织ID
+      - CORE_PEER_LOCALMSPID=HousemngMSP
+      # 通信时是否使用tls加密
+      - CORE_PEER_TLS_ENABLED=true
+      # tls证书文件
+      - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer1.housemng.example.com/tls/server.crt
+      # tls私钥文件
+      - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer1.housemng.example.com/tls/server.key
+      # 根证书文件
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/peers/peer1.housemng.example.com/tls/ca.crt
+      # 指定客户端的身份、管理员身份目录
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/housemng.example.com/users/Admin@housemng.example.com/msp
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: /bin/bash #-c './scripts/script.sh ${CHANNEL_NAME}; sleep $TIMEOUT'
+    volumes:
+      - /var/run/:/host/var/run/
+      - ./chaincode/go/:/opt/gopath/src/github.com/hyperledger/fabric/chaincode/go/
+      - ./crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
+      #- ./scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
+      - ./channel-artifacts:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+    depends_on:
+      - orderer.example.com
+      - peer0.police.example.com
+      - peer1.police.example.com
+      - peer0.housemng.example.com
+      - peer1.housemng.example.com
+      - peer0.credit.example.com
+      - peer1.credit.example.com
+
+  cli_credit:
+    container_name: cli_credit
+    image: hyperledger/fabric-tools:latest
+    tty: true
+    environment:
+      - GODEBUG=netdns=go
+      - GOPATH=/opt/gopath
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      # 日志级别：critical、error、warning、notice、info、debug
+      - CORE_LOGGING_LEVEL=DEBUG
+      - CORE_PEER_ID=creditPeer0
+      # 要连接的peer节点
+      - CORE_PEER_ADDRESS=peer0.credit.example.com:7051
+      # peer组织ID
+      - CORE_PEER_LOCALMSPID=CreditMSP
+      # 通信时是否使用tls加密
+      - CORE_PEER_TLS_ENABLED=true
+      # tls证书文件
+      - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer0.credit.example.com/tls/server.crt
+      # tls私钥文件
+      - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer0.credit.example.com/tls/server.key
+      # 根证书文件
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer0.credit.example.com/tls/ca.crt
+      # 指定客户端的身份、管理员身份目录
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/users/Admin@credit.example.com/msp
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: /bin/bash #-c './scripts/script.sh ${CHANNEL_NAME}; sleep $TIMEOUT'
+    volumes:
+      - /var/run/:/host/var/run/
+      - ./chaincode/go/:/opt/gopath/src/github.com/hyperledger/fabric/chaincode/go/
+      - ./crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
+      #- ./scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
+      - ./channel-artifacts:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+    depends_on:
+      - orderer.example.com
+      - peer0.police.example.com
+      - peer1.police.example.com
+      - peer0.housemng.example.com
+      - peer1.housemng.example.com
+      - peer0.credit.example.com
+      - peer1.credit.example.com
+
+  cli_credit1:
+    container_name: cli_credit1
+    image: hyperledger/fabric-tools:latest
+    tty: true
+    environment:
+      - GODEBUG=netdns=go
+      - GOPATH=/opt/gopath
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      # 日志级别：critical、error、warning、notice、info、debug
+      - CORE_LOGGING_LEVEL=DEBUG
+      - CORE_PEER_ID=creditPeer1
+      # 要连接的peer节点
+      - CORE_PEER_ADDRESS=peer1.credit.example.com:7051
+      # peer组织ID
+      - CORE_PEER_LOCALMSPID=CreditMSP
+      # 通信时是否使用tls加密
+      - CORE_PEER_TLS_ENABLED=true
+      # tls证书文件
+      - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer1.credit.example.com/tls/server.crt
+      # tls私钥文件
+      - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer1.credit.example.com/tls/server.key
+      # 根证书文件
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/peers/peer1.credit.example.com/tls/ca.crt
+      # 指定客户端的身份、管理员身份目录
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/credit.example.com/users/Admin@credit.example.com/msp
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: /bin/bash #-c './scripts/script.sh ${CHANNEL_NAME}; sleep $TIMEOUT'
+    volumes:
+      - /var/run/:/host/var/run/
+      - ./chaincode/go/:/opt/gopath/src/github.com/hyperledger/fabric/chaincode/go/
+      - ./crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
+      #- ./scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
+      - ./channel-artifacts:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+    depends_on:
+      - orderer.example.com
+      - peer0.police.example.com
+      - peer1.police.example.com
+      - peer0.housemng.example.com
+      - peer1.housemng.example.com
+      - peer0.credit.example.com
+      - peer1.credit.example.com
